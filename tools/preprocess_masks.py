@@ -16,13 +16,6 @@ COLOR_CLASS_MAP = {
 }
 
 
-# Function to convert RGB mask to indexed mask
-# This function reads an RGB mask image, maps its colors to indices based on COLOR_CLASS_MAP
-# and saves the indexed mask as a PNG file.
-# Unmapped colors will trigger a warning.
-# Input: input_path (str) - path to the input RGB mask image
-#        output_path (str) - path to save the indexed mask image
-# Output: None (saves the indexed mask image to output_path)
 def convert_mask(input_path, output_path):
     mask = Image.open(input_path).convert("RGB")
     arr = np.array(mask)
@@ -36,12 +29,13 @@ def convert_mask(input_path, output_path):
         mapped |= match
 
     if not np.all(mapped):
-        print(f"⚠️ Warning: {input_path} contains unmapped colors!")
+        print(f"⚠️  Warning: {input_path} contains unmapped colors!")
+        return False
 
     Image.fromarray(indexed).save(output_path)
+    return True
 
 
-# Input/output directories
 split_dirs = ["train", "val", "test"]
 for split in split_dirs:
     input_dir = f"data/SUIM/masks_rgb/{split}"
@@ -49,11 +43,26 @@ for split in split_dirs:
 
     # Remove and recreate output directory
     if os.path.exists(output_dir):
+        print(f"🧹 Removing existing directory: {output_dir}")
         shutil.rmtree(output_dir)
+    print(f"📁 Creating directory: {output_dir}")
     os.makedirs(output_dir, exist_ok=True)
 
-    for file in os.listdir(input_dir):
-        if file.endswith(".bmp"):
-            input_path = os.path.join(input_dir, file)
-            output_path = os.path.join(output_dir, file.replace(".bmp", ".png"))
-            convert_mask(input_path, output_path)
+    print(f"\n🔄 Processing split: {split}")
+    files = [f for f in os.listdir(input_dir) if f.endswith(".bmp")]
+    total = len(files)
+    unmapped_count = 0
+
+    for i, file in enumerate(files, start=1):
+        input_path = os.path.join(input_dir, file)
+        output_path = os.path.join(output_dir, file.replace(".bmp", ".png"))
+        success = convert_mask(input_path, output_path)
+        if not success:
+            unmapped_count += 1
+        print(f"[{i}/{total}] Processed: {file}", end="\r")
+
+    print(f"\n✅ Finished processing {total} files in '{split}'")
+    if unmapped_count:
+        print(f"⚠️  {unmapped_count} files had unmapped colors.")
+    else:
+        print("✅ All masks converted successfully.\n")
