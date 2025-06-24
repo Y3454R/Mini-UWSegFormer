@@ -1,69 +1,59 @@
 import os
-import shutil
 import numpy as np
 from PIL import Image
+import shutil
 
+# Define RGB to index mapping for SUIM semantic segmentation classes
 COLOR_CLASS_MAP = {
-    (0, 0, 0): 0,  # BW: Background waterbody
-    (0, 0, 255): 1,  # HD: Human divers
-    (0, 255, 0): 2,  # PF: Plants/sea-grass
-    (0, 255, 255): 3,  # WR: Wrecks/ruins
-    (255, 0, 0): 4,  # RO: Robots/instruments
-    (255, 0, 255): 5,  # RI: Reefs and invertebrates
-    (255, 255, 0): 6,  # FV: Fish and vertebrates
-    (255, 255, 255): 7,  # SR: Sand/sea-floor & rocks
+    (0, 0, 0): 0,  # BW - Background / Waterbody (Black)
+    (0, 0, 255): 1,  # HD - Human Divers (Blue)
+    (0, 255, 0): 2,  # PF - Aquatic Plants / Sea-grass (Green)
+    (0, 255, 255): 3,  # WR - Wrecks / Ruins (Sky blue)
+    (255, 0, 0): 4,  # RO - Robots / Instruments (Red)
+    (255, 0, 255): 5,  # RI - Reefs / Invertebrates (Pink)
+    (255, 255, 0): 6,  # FV - Fish and Vertebrates (Yellow)
+    (255, 255, 255): 7,  # SR - Sea-floor / Rocks (White)
 }
 
 
-def rgb_to_nearest_class(rgb_pixel, colors, color_to_idx):
-    # Compute squared Euclidean distances between pixel and all known colors
-    dists = np.sum((colors - rgb_pixel) ** 2, axis=1)
-    idx_min = np.argmin(dists)
-    return color_to_idx[tuple(colors[idx_min])]
-
-
-def convert_mask_nearest(input_path, output_path):
+# Function to convert RGB mask to indexed mask
+# This function reads an RGB mask image, maps its colors to indices based on COLOR_CLASS_MAP
+# and saves the indexed mask as a PNG file.
+# Unmapped colors will trigger a warning.
+# Input: input_path (str) - path to the input RGB mask image
+#        output_path (str) - path to save the indexed mask image
+# Output: None (saves the indexed mask image to output_path)
+def convert_mask(input_path, output_path):
     mask = Image.open(input_path).convert("RGB")
     arr = np.array(mask)
     h, w, _ = arr.shape
-    result = np.zeros((h, w), dtype=np.uint8)
+    indexed = np.zeros((h, w), dtype=np.uint8)
 
-    # Prepare known colors array for fast distance computation
-    known_colors = np.array(list(COLOR_CLASS_MAP.keys()))
-    color_to_idx = COLOR_CLASS_MAP
+    mapped = np.zeros((h, w), dtype=bool)
+    for rgb, idx in COLOR_CLASS_MAP.items():
+        match = np.all(arr == rgb, axis=-1)
+        indexed[match] = idx
+        mapped |= match
 
-    unmapped_pixels = 0
-    total_pixels = h * w
+    if not np.all(mapped):
+        print(f"⚠️ Warning: {input_path} contains unmapped colors!")
 
-    for i in range(h):
-        for j in range(w):
-            pixel = arr[i, j]
-            # Check if exact match
-            if tuple(pixel) in color_to_idx:
-                result[i, j] = color_to_idx[tuple(pixel)]
-            else:
-                # Assign nearest known color index
-                result[i, j] = rgb_to_nearest_class(pixel, known_colors, color_to_idx)
-                unmapped_pixels += 1
-
-    if unmapped_pixels > 0:
-        print(
-            f"Warning: {input_path} has {unmapped_pixels} unmapped pixels out of {total_pixels} total."
-        )
-
-    Image.fromarray(result).save(output_path)
+    Image.fromarray(indexed).save(output_path)
 
 
-input_dir = "data/SUIM/masks_rgb/train"
-output_dir = "data/SUIM/masks_indexed/train"
+# Input/output directories
+split_dirs = ["train", "val", "test"]
+for split in split_dirs:
+    input_dir = f"data/SUIM/masks_rgb/{split}"
+    output_dir = f"data/SUIM/masks_indexed/{split}"
 
-if os.path.exists(output_dir):
-    shutil.rmtree(output_dir)
-os.makedirs(output_dir, exist_ok=True)
+    # Remove and recreate output directory
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
 
-for file in os.listdir(input_dir):
-    if file.endswith(".bmp"):
-        in_path = os.path.join(input_dir, file)
-        out_path = os.path.join(output_dir, file.replace(".bmp", ".png"))
-        convert_mask_nearest(in_path, out_path)
-print(f"Converted masks saved to {output_dir}")
+    for file in os.listdir(input_dir):
+        if file.endswith(".bmp"):
+            input_path = os.path.join(input_dir, file)
+            output_path = os.path.join(output_dir, file.replace(".bmp", ".png"))
+            convert_mask(input_path, output_path)
