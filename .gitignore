@@ -24,6 +24,7 @@ venv/
 *.log
 
 # --- Datasets & Outputs (optional) ---
+/SUIM_fix/
 /SUIM/
 data/SUIM/images/
 data/SUIM/masks_rgb/
