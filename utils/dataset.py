@@ -1,50 +1,31 @@
-# dataset.py
 import os
-from torch.utils.data import Dataset
 from PIL import Image
-import numpy as np
-import torch
+from torch.utils.data import Dataset
 
 
 class SUIMDataset(Dataset):
     def __init__(self, images_dir, masks_dir, split_txt, transform=None):
-        with open(split_txt, "r") as f:
-            self.ids = [line.strip() for line in f.readlines()]
         self.images_dir = images_dir
         self.masks_dir = masks_dir
         self.transform = transform
 
+        with open(split_txt, "r") as f:
+            self.ids = [line.strip() for line in f.readlines()]
+
     def __len__(self):
         return len(self.ids)
 
+    def __getitem__(self, idx):
+        img_id = self.ids[idx]
+        img_path = os.path.join(self.images_dir, f"{img_id}.jpg")
+        if not os.path.exists(img_path):
+            img_path = os.path.join(self.images_dir, f"{img_id}.png")  # fallback
+        mask_path = os.path.join(self.masks_dir, f"{img_id}.png")
 
-def __getitem__(self, idx):
-    img_id = self.ids[idx]
+        image = Image.open(img_path).convert("RGB")
+        mask = Image.open(mask_path).convert("L")  # single-channel indexed
 
-    # Try common image extensions
-    for ext in [".jpg", ".jpeg", ".png"]:
-        img_path = os.path.join(self.images_dir, img_id + ext)
-        if os.path.exists(img_path):
-            break
-    else:
-        raise FileNotFoundError(
-            f"No image found for id {img_id} with extensions jpg/jpeg/png"
-        )
+        if self.transform:
+            image, mask = self.transform(image, mask)
 
-    # as mask is PNG
-    mask_path = os.path.join(self.masks_dir, img_id + ".png")
-    if not os.path.exists(mask_path):
-        raise FileNotFoundError(f"No mask found for id {img_id}")
-
-    image = Image.open(img_path).convert("RGB")
-    mask = Image.open(mask_path)
-
-    if self.transform:
-        image, mask = self.transform(image, mask)
-
-    mask = torch.from_numpy(np.array(mask)).long()
-
-    return image, mask
-
-    def __repr__(self):
-        return f"SUIMDataset(images_dir={self.images_dir}, masks_dir={self.masks_dir}, num_samples={len(self.ids)})"
+        return image, mask
