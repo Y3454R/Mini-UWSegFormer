@@ -1,3 +1,7 @@
+# Mini-UWSegFromer
+Mini-UWSegFormer: Lightweight Transformer for Semantic Segmentation of Underwater Imagery
+
+## Basic Idea
 ```
 Input Image
     ↓
