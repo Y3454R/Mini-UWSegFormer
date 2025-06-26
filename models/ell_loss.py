@@ -4,9 +4,17 @@ import torch.nn.functional as F
 
 
 def scharr_operator():
-    kx = torch.tensor([[-3, 0, 3], [-10, 0, 10], [-3, 0, 3]], dtype=torch.float32)
-    ky = torch.tensor([[-3, -10, -3], [0, 0, 0], [3, 10, 3]], dtype=torch.float32)
-    return kx.unsqueeze(0).unsqueeze(0), ky.unsqueeze(0).unsqueeze(0)
+    kx = (
+        torch.tensor([[-3, 0, 3], [-10, 0, 10], [-3, 0, 3]], dtype=torch.float32)
+        .unsqueeze(0)
+        .unsqueeze(0)
+    )
+    ky = (
+        torch.tensor([[-3, -10, -3], [0, 0, 0], [3, 10, 3]], dtype=torch.float32)
+        .unsqueeze(0)
+        .unsqueeze(0)
+    )
+    return kx, ky
 
 
 def edge_loss(pred, target):
@@ -15,7 +23,9 @@ def edge_loss(pred, target):
     pred = pred.unsqueeze(1).float()
     target = target.unsqueeze(1).float()
 
-    kx, ky = scharr_operator().to(pred.device)
+    kx, ky = scharr_operator()
+    kx, ky = kx.to(pred.device), ky.to(pred.device)
+
     grad_pred = torch.sqrt(
         F.conv2d(pred, kx, padding=1) ** 2 + F.conv2d(pred, ky, padding=1) ** 2
     )
