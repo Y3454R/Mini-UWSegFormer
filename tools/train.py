@@ -13,16 +13,28 @@ from torchvision import transforms
 from models.uwsegformer import UWSegFormer
 from models.ell_loss import edge_loss
 from utils.dataset import SUIMDataset
+from torchvision.transforms import InterpolationMode
 
 # Device setup
 DEVICE = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+IMAGE_SIZE = (480, 640)
 print(f"Using device: {DEVICE}")
 
+
 # Transform function
-transform_fn = lambda img, mask: (
-    transforms.ToTensor()(img),
-    torch.from_numpy(np.array(mask)).long(),
-)
+def train_transform(image, mask):
+    resize_image = transforms.Resize(
+        IMAGE_SIZE, interpolation=InterpolationMode.BILINEAR
+    )
+    resize_mask = transforms.Resize(IMAGE_SIZE, interpolation=InterpolationMode.NEAREST)
+
+    image = resize_image(image)
+    mask = resize_mask(mask)
+
+    image = transforms.ToTensor()(image)
+    mask = torch.from_numpy(np.array(mask)).long()
+    return image, mask
+
 
 # Paths
 BASE = "data/SUIM"
@@ -31,7 +43,7 @@ train_loader = DataLoader(
         f"{BASE}/images/train",
         f"{BASE}/masks_indexed/train",
         f"{BASE}/splits/train.txt",
-        transform_fn,
+        train_transform,
     ),
     batch_size=4,
     shuffle=True,
@@ -42,7 +54,7 @@ val_loader = DataLoader(
         f"{BASE}/images/val",
         f"{BASE}/masks_indexed/val",
         f"{BASE}/splits/val.txt",
-        transform_fn,
+        train_transform,
     ),
     batch_size=4,
     shuffle=False,
